@@ -1,0 +1,104 @@
+\documentclass{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{babel}[portuguese]
+\usepackage{listings}
+\usepackage{verbatim}
+
+\title{Relatório - EP3 - MAC0463}
+\author{Renê Cardozo - 9797315}
+
+\begin{document}
+\maketitle
+
+\section{Introdução}
+Para realizar as simulações foi utilizado o simulador de redes ns-3 junto ao módulo de simulação 5G "5G-LENA". Esta combinação permite a simulação de redes 5G conforme o documento \textit{Release 15 - New Radio} da 3GPP, organização que define os padrões mundiais para comunicação móvel.
+
+Como a integração do simulador com determinadas distribuições podem apresentar problemas de dependências com relação à
+versão das bibliotecas do gerenciador de pacotes, as simulações foram realizadas utilizando um container
+\textit{Docker}, com imagem disponível na plataforma \textit{Docker Hub}, no repositório reneepc/ns3-5g.
+
+\section{Elementos Gerais do Simulador}
+Equipamentos de rede no ns-3 são representados por objetos denominados nós. Ao invés de utilizar herança para representar diferentes tipos de equipamentos, o simulador utiliza um sistema de agregação no qual é possível associar outros objetos a um nó. Para cada nó é possível associar múltiplos dispositivos de rede da classe NetDevice, bem como associar aplicações com a classe Application.
+
+Para possibilitar a comunicação entre diferentes nós é necessário que seja especificado 
+um canal de comunicação, o qual será associado a cada dispositivo de rede (NetDevice) que deseja comunicar-se entre si.
+Portanto, é possível especificar diferentes canais associados a diferentes dispositivos de rede,
+ como um computador com uma placa de rede Ethernet, uma Bluetooth e outra Wi-Fi.
+
+Para que seja possível produzir pacotes IP é necessário instalar a a pilha de protocolos TCP/IP, a qual é definida como uma aplicação que pode ser agregada a um nó. Uma vez instalada a pilha de protocolos é possível ainda utilizar uma aplicação que coordena o envio dos pacotes, como UdpClient e UdpServer ou TcpClient e TcpServer, entre outras aplicações.
+
+Algoritmos de perda, delay e beamforming podem ser especificados para definir simulações mais realistas, bem como o estabelecimento de cenários já prontos como o meio de prédios ou campo aberto.
+
+Todas as simulações envolvendo redes sem fio devem utilizar um modelo de mobilidade no qual todos os nós possuem uma posição em um determinado período de tempo, mesmo que esta seja estática durante toda a simulação. Para isso podem ser utilizados os diferentes modelos de mobilidade do ns-3.
+
+As posições dos nós são essenciais para o devido cálculo do delay, taxa de transmissão, perda de pacotes e outras características de redes sem fio.
+
+\section{Módulo 5G-LENA}
+
+O módulo 5G-LENA é capaz de simular redes 5G, sendo baseado no antigo módulo para simulação de LTE do ns-3. Com este módulo é possível definir estações base (gNB) e estações de usuário (UE), para as quais é possível realizar uma série de modificações nos dispositivos de rede (NetDevices) associados. Estes podem definir diferentes potências, número de antenas, frequência de uso, modo do canal, etc.
+
+No novo modelo de redes 5G há a possibilidade de definir diferentes modos para a utilização do canal, como Ultra-Low
+Latency e Voice. Estes modos definem a prioridade dos pacotes na fila de processamento, a taxa de transmissão e outras
+características do canal de transmissão.
+
+\section{Simulações}
+
+Um requisito para produzir as simulações é possuir \textit{Docker} instalado.
+Uma vez feito, pode-se criar um container com a imagem do simulador com o comando:
+
+\begin{lstlisting}[language=bash]
+  docker run -it reneepc/ns3-5g
+\end{lstlisting}
+
+Este comando fará o download da imagem do container, caso não exista, e iniciará em modo iterativo, abrindo um shell para o usuário.
+
+O programa waf é utilizado para gerenciar a compilação e execução de scripts.
+Para este exemplo, foi utilizado o script cttc-nr-demo.cc do módulo 5G-LENA. Este se encontra no caminho ./contrib/nr/examples/cttc-nr-demo.cc, relativo ao diretório padrão de entrada do container.
+
+Este script utiliza inicialmente somente uma estação base (gNB) e duas estações de usuário (UE). Mais estações base ou de usuário podem ser definidas por meio de argumentos passados ao script. As estações de usuário pares serão definidas como tendo modo de transmissão ultra-low latency e as ímpares como sendo modo de transmissão voice.
+
+Os nós serão distribuídos em uma estrutura de grid, estando todos na mesma altura. Esta estrutura de grid é definida por um método auxiliar do próprio módulo do 5G-LENA.
+
+Uma vez determinado o modelo de mobilidade e modo de transmissão, o canal de transmissão é definido e associado às
+interfaces de rede, as quais serão agregadas posteriormente aos nós. Neste passo é possível definir diversas
+características do canal, como o número de sub canais, o número de antenas, o número de sub-bandas, condição de atualização do canal, frequência de transmissão, algoritmo de beamforming, largura de banda total, etc.
+
+Após isso, uma aplicação UdpServer é instalada na gNB e UdpClients são instalados nas UEs. Por padrão, as UEs irão transmitir 10000 pacotes no intervalo de 1 segundo de duração para a gNB.
+
+A utilização do módulo flow-monitor permite o cálculo de diversos parâmetros de rede do cenário de rede estudado.
+
+Para executar este script com o waf o seguinte comando deve ser utilizado:
+
+\begin{lstlisting}[language=bash]
+  ./waf --run contrib/nr/examples/cttc-nr-demo.cc
+\end{lstlisting}
+
+\section{Variação do Número de UEs}
+
+Com o objetivo de explorar os efeitos do aumento do número de estações de usuário e um possível cenário de congestionamento de rede foram realizadas simulações com 2 (padrão), 5 e 10 UEs. O número diferente de UEs pode ser especificado da seguinte forma:
+
+\begin{lstlisting}[language=bash]
+  ./waf --run "contrib/nr/examples/cttc-nr-demo.cc
+--ueNumPergNb=<numero-de-UEs>"
+\end{lstlisting}
+
+Abaixo estão os outputs para as simulações com 2, 5 e 10 UEs para apenas 1 estação base (gNB).
+
+\subsection*{Output para 2 UEs}
+\verbatiminput{2nos.txt}
+
+\subsection*{Output para 5 UEs}
+\verbatiminput{5nos.txt}
+
+\subsection*{Output para 10 UEs}
+\verbatiminput{10nos.txt}
+
+É possível identificar, por exemplo, que os nós que estão em modo ultra-low latency apresentam uma taxa de transmissão de 10Mbps, enquanto os nós que estão em voice apresentam uma taxa de transmissão de 100 Mbps. Sacrificando um pouco a largura de banda é possível obter um delay menor. Para a simulação com 2 UEs, o nó em ultra-low latency apresenta um delay quase 4 vezes menor do que o nó em voice, bem como um jitter 3 vezes menor.
+
+Uma vez aumentados os nós de estações de usuário, temos que os dispositivos em ultra-low latency mantém o seu delay e
+taxa de transmissão relativamente estáveis, independente de quantos nós são adicionados. A taxa de perda de pacotes (Tx
+Packets - Rx Packets) permanece inalterada. Contudo, para os nós em modo voice, o delay é aumentado substancialmente, quase 1000x o valor inicial para alguns nós. Além disso, cerca $\frac{1}{3}$ dos pacotes é perdido.
+
+\end{document}
